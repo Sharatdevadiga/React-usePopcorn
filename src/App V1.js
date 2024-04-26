@@ -34,26 +34,32 @@ export default function App() {
   function handleAddWatched(movie) {
     setWatched((watched) => [...watched, movie]);
   }
+  function handleDeleteWatched(id) {
+    setWatched((watched) => watched.filter((movie) => movie.imdbID !== id));
+  }
 
   useEffect(
     function () {
+      const controller = new AbortController();
       async function fetchMovies() {
         try {
           setIsLoading(true);
           setError("");
           const res = await fetch(
-            `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`
+            `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
+            { signal: controller.signal }
           );
 
           if (!res.ok) throw new Error("Something went wrong with fetching");
-
           const data = await res.json();
-          console.log(data);
           if (data.Response === "False") throw new Error(`movie not found`);
 
           setMovies(data.Search);
+          setError("");
         } catch (err) {
-          setError(err.message);
+          if (error.name !== "AbortError") {
+            setError(err.message);
+          }
         } finally {
           setIsLoading(false);
         }
@@ -64,9 +70,13 @@ export default function App() {
         setError("");
         return;
       }
-      setTimeout(() => {
-        fetchMovies();
-      }, 500);
+
+      handleCloseMovie();
+      fetchMovies();
+
+      return function () {
+        controller.abort();
+      };
     },
     [query]
   );
@@ -89,7 +99,7 @@ export default function App() {
           ) : error ? (
             <ErrorMessage message={error} />
           ) : (
-            <ErrorMessage message={"Try searching something"} />
+            ""
           )}
 
           <Movielist
@@ -109,7 +119,10 @@ export default function App() {
           ) : (
             <>
               <WatchedSummary watched={watched}></WatchedSummary>
-              <WatchedMoviesList watched={watched}></WatchedMoviesList>
+              <WatchedMoviesList
+                watched={watched}
+                onDeleteWatched={handleDeleteWatched}
+              ></WatchedMoviesList>
             </>
           )}
         </Box>
